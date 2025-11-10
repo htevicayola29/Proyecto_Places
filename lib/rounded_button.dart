@@ -10,7 +10,7 @@ class RoundedButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        // ✅ Nueva forma de mostrar SnackBar
+        // Nueva forma de mostrar SnackBar
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Navegando..."),
