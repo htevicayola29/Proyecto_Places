@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:places/places.dart';
-import 'package:places/places_cupertino.dart';
-
+import 'places.dart';
+import 'places_cupertino.dart';
+import 'login_page.dart';
 import 'home.dart';
 
 void main() {
@@ -11,15 +11,14 @@ void main() {
 class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return  MaterialApp(
+    return MaterialApp(
       title: "Places",
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity
-        ),
-      home: PlacesCupertino(),
-        );
-
-
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      // Cambiamos PlacesCupertino() por LoginPage() para que inicie ahí
+      home: const LoginPage(),
+    );
   }
 }
