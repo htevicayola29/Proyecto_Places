@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'places_cupertino.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -14,15 +17,72 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
+  bool _loading = false;
+
+Future<void> login() async {
+  if (!_formKey.currentState!.validate()) return;
+
+  setState(() {
+    _loading = true;
+  });
+
+  try {
+    final response = await http.post(
+
+      Uri.parse('http://10.0.2.2:8000/api/users/login'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        "email": _emailController.text.trim(),
+        "password": _passwordController.text,
+      }),
+    );
+
+     print("STATUS: ${response.statusCode}");
+     print("BODY: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final token = data['token'];
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', token);
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlacesCupertino(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Correo o contraseña incorrectos'),
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error de conexión: $e'),
+      ),
+    );
+  }
+
+  setState(() {
+    _loading = false;
+  });
+}
+
+  // Colores
+  final Color blueTop = const Color(0xFF0D47A1);
+  final Color blueBottom = const Color(0xFF42A5F5);
 
   @override
   Widget build(BuildContext context) {
     final double screenHeight = MediaQuery.of(context).size.height;
     final double screenWidth = MediaQuery.of(context).size.width;
-
-    // DEGRADADO: De un azul fuerte a uno más suave
-    const Color blueTop = Color(0xFF0D47A1);    // Azul fuerte/marino profundo
-    const Color blueBottom = Color(0xFF42A5F5); // Azul suave/celeste brillante
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -32,13 +92,13 @@ class _LoginPageState extends State<LoginPage> {
           height: screenHeight,
           child: Stack(
             children: [
-              // 1. Cabecera con el degradado de azules corregido
+              // Fondo degradado
               ClipPath(
                 clipper: WaveClipper(),
                 child: Container(
                   width: screenWidth,
                   height: screenHeight * 0.48,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [blueTop, blueBottom],
                       begin: Alignment.topCenter,
@@ -48,7 +108,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
 
-              // 2. Interfaz de usuario
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 30.0),
@@ -57,18 +116,15 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       SizedBox(height: screenHeight * 0.12),
 
-                      // Título principal
                       const Text(
-                        "Login",
+                        "Places",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
                         ),
                       ),
 
-                      // Frase de la app con opacidad nativa limpia
                       Padding(
                         padding: const EdgeInsets.only(top: 6.0),
                         child: Text(
@@ -76,49 +132,35 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.2,
                           ),
                         ),
                       ),
 
                       SizedBox(height: screenHeight * 0.15),
 
-                      // Formulario
                       Form(
                         key: _formKey,
                         child: Column(
                           children: [
-                            // Campo de Correo Electrónico
+                            // EMAIL
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
-                              style: const TextStyle(color: Colors.black87, fontSize: 16),
                               decoration: const InputDecoration(
                                 hintText: 'Email',
-                                hintStyle: TextStyle(color: Color(0xFFC4C7D0), fontSize: 15),
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(vertical: 10.0),
                                 enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Color(0xFFE2E4E9), width: 1.5),
+                                  borderSide: BorderSide(color: Color(0xFFE2E4E9)),
                                 ),
                                 focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: blueTop, width: 2.0),
+                                  borderSide: BorderSide(color: Color(0xFF0D47A1)),
                                 ),
-                                errorBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
-                                ),
-                                focusedErrorBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.red, width: 2.0),
-                                ),
-                                errorStyle: TextStyle(color: Colors.redAccent, fontSize: 12),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Por favor ingresa tu correo';
+                                  return 'Ingresa tu correo';
                                 }
-                                if (!value.trim().toLowerCase().endsWith('@gmail.com')) {
-                                  return 'Debe terminar en @gmail.com';
+                                if (!value.contains('@')) {
+                                  return 'Correo inválido';
                                 }
                                 return null;
                               },
@@ -126,34 +168,17 @@ class _LoginPageState extends State<LoginPage> {
 
                             const SizedBox(height: 20),
 
-                            // Campo de Contraseña
+                            // PASSWORD
                             TextFormField(
                               controller: _passwordController,
                               obscureText: !_isPasswordVisible,
-                              style: const TextStyle(color: Colors.black87, fontSize: 16),
                               decoration: InputDecoration(
                                 hintText: 'Password',
-                                hintStyle: const TextStyle(color: Color(0xFFC4C7D0), fontSize: 15),
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 10.0),
-                                enabledBorder: const UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Color(0xFFE2E4E9), width: 1.5),
-                                ),
-                                focusedBorder: const UnderlineInputBorder(
-                                  borderSide: BorderSide(color: blueTop, width: 2.0),
-                                ),
-                                errorBorder: const UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
-                                ),
-                                focusedErrorBorder: const UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.red, width: 2.0),
-                                ),
-                                errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 12),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                                    color: const Color(0xFFC4C7D0),
-                                    size: 20,
+                                    _isPasswordVisible
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
                                   ),
                                   onPressed: () {
                                     setState(() {
@@ -161,10 +186,16 @@ class _LoginPageState extends State<LoginPage> {
                                     });
                                   },
                                 ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(color: Color(0xFFE2E4E9)),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: blueTop),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Por favor ingresa tu contraseña';
+                                  return 'Ingresa tu contraseña';
                                 }
                                 if (value.length < 6) {
                                   return 'Mínimo 6 caracteres';
@@ -175,39 +206,30 @@ class _LoginPageState extends State<LoginPage> {
 
                             const SizedBox(height: 40),
 
-                            // Botón de Login azulado
+                            // BOTÓN LOGIN
                             Container(
                               width: double.infinity,
                               height: 50,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10.0),
-                                gradient: const LinearGradient(
+                                borderRadius: BorderRadius.circular(10),
+                                gradient: LinearGradient(
                                   colors: [blueTop, blueBottom],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: blueTop.withValues(alpha: 0.3), // Solución moderna para evitar 'withOpacity' deprecado
-                                    offset: const Offset(0, 8),
+                                    color: blueTop.withValues(alpha: 0.3),
                                     blurRadius: 16,
-                                  ),
+                                    offset: const Offset(0, 8),
+                                  )
                                 ],
                               ),
                               child: TextButton(
-                                onPressed: () {
-                                  if (_formKey.currentState!.validate()) {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => PlacesCupertino(),
-                                      ),
-                                    );
-                                  }
-                                },
+                                onPressed: _loading ? null : login,
                                 child: const Text(
                                   "Login",
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16.0,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -219,20 +241,12 @@ class _LoginPageState extends State<LoginPage> {
 
                       const Spacer(),
 
-                      // Enlace inferior para recuperar contraseña
                       Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 25.0),
-                          child: TextButton(
-                            onPressed: () {},
-                            child: const Text(
-                              "¿Olvidaste tu contraseña?",
-                              style: TextStyle(
-                                color: Color(0xFFA1A4B0),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                        child: TextButton(
+                          onPressed: () {},
+                          child: const Text(
+                            "¿Olvidaste tu contraseña?",
+                            style: TextStyle(color: Color(0xFFA1A4B0)),
                           ),
                         ),
                       ),
@@ -254,18 +268,18 @@ class WaveClipper extends CustomClipper<Path> {
     Path path = Path();
     path.lineTo(0, size.height * 0.82);
 
-    var firstControlPoint = Offset(size.width * 0.38, size.height * 0.70);
-    var firstEndPoint = Offset(size.width * 0.75, size.height * 0.90);
     path.quadraticBezierTo(
-        firstControlPoint.dx, firstControlPoint.dy,
-        firstEndPoint.dx, firstEndPoint.dy
+      size.width * 0.38,
+      size.height * 0.70,
+      size.width * 0.75,
+      size.height * 0.90,
     );
 
-    var secondControlPoint = Offset(size.width * 0.90, size.height * 0.97);
-    var secondEndPoint = Offset(size.width, size.height * 0.88);
     path.quadraticBezierTo(
-        secondControlPoint.dx, secondControlPoint.dy,
-        secondEndPoint.dx, secondEndPoint.dy
+      size.width * 0.90,
+      size.height * 0.97,
+      size.width,
+      size.height * 0.88,
     );
 
     path.lineTo(size.width, 0);
