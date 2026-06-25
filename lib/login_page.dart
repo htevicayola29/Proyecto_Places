@@ -37,10 +37,14 @@ class _LoginPageState extends State<LoginPage> {
         }),
       );
 
-      final data = jsonDecode(response.body);
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (e) {
+        data = {'error': 'Error en la respuesta del servidor'};
+      }
 
       if (response.statusCode == 200) {
-        // Tu API devuelve {'token': '...', 'user': {...}}
         final token = data['token'];
         
         final prefs = await SharedPreferences.getInstance();
@@ -49,19 +53,20 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) =>PlacesCupertino()),
+          MaterialPageRoute(builder: (_) => const PlacesCupertino()),
         );
       } else {
-        // Manejo de error 401 Unauthorized o fallos de validación
+        String message = data['error'] ?? data['message'] ?? 'Error ${response.statusCode}: No se pudo iniciar sesión';
+        
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['error'] ?? 'Error al iniciar sesión')),
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
+        SnackBar(content: Text('Error de conexión: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
